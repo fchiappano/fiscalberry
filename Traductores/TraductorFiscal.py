@@ -9,100 +9,71 @@ class TraductorFiscal(TraductorInterface):
         # cancelar y volver a un estado conocido
         self.comando.cancelAnyDocument()
 
-        self.comando.start()
         ret = self.comando.dailyClose(type)
-        self.comando.close()
-        return ret
-
-    def imprimirAuditoria(self, desde, hasta):
-        "Imprimir Auditoria"
-        #Solo compatible para Epson 1G y 2G por el momento...
-
-        #desde & hasta parametros que pueden ser números de zetas o fechas en formato ddmmyyyy
-
-        self.comando.start()
-        ret = self.comando.imprimirAuditoria(desde, hasta)
-        self.comando.close()
         return ret
 
     def getStatus(self, *args):
         "getStatus"
-        self.comando.start()
         ret = self.comando.getStatus(list(args))
-        self.comando.close()
         return ret
 
     def setHeader(self, *args):
         "SetHeader"
-        self.comando.start()
         ret = self.comando.setHeader(list(args))
-        self.comando.close()
         return ret
 
     def setTrailer(self, *args):
         "SetTrailer"
-        self.comando.start()
         ret = self.comando.setTrailer(list(args))
-        self.comando.close()
         return ret
 
     def openDrawer(self, *args):
         "Abrir caja registradora"
-        self.comando.start()
-        ret = self.comando.openDrawer()
-        self.comando.close()
-        return ret
+        return self.comando.openDrawer()
 
     def getLastNumber(self, tipo_cbte):
         "Devuelve el último número de comprobante"
-        self.comando.start()
+
         letra_cbte = tipo_cbte[-1] if len(tipo_cbte) > 1 else None
-        ret = self.comando.getLastNumber(letra_cbte)
-        self.comando.close()
-        return ret
+        return self.comando.getLastNumber(letra_cbte)
 
     def cancelDocument(self, *args):
         "Cancelar comprobante en curso"
-        self.comando.start()
-        self.comando.cancelAnyDocument()
-        self.comando.close()
+        return self.comando.cancelAnyDocument()
 
     def printTicket(self, encabezado=None, items=[], pagos=[], percepciones=[], addAdditional=None, setHeader=None, setTrailer=None):
-        if setHeader:
-            self.setHeader(*setHeader)
-
-        if setTrailer:
-            self.setTrailer(*setTrailer)
-        
-        self.comando.start()
         try:
+            if setHeader:
+                self.setHeader(*setHeader)
 
-          if encabezado:
-              self._abrirComprobante(**encabezado)
-          else:
-              self._abrirComprobante()
+            if setTrailer:
+                self.setTrailer(*setTrailer)
 
-          for item in items:
-              self._imprimirItem(**item)
+            if encabezado:
+                self._abrirComprobante(**encabezado)
+            else:
+                self._abrirComprobante()
 
-          if percepciones:
+            if items:
+                for item in items:
+                    self._imprimirItem(**item)
+
+            if percepciones:
                 for percepcion in percepciones:
-                    self._imprimirPercepcion(**percepcion)
+                    self._imprimirPercepcion(**percepcion)                
 
-          if pagos:
+            if addAdditional:
+                self.comando.addAdditional(**addAdditional)
+            
+            if pagos:
                 for pago in pagos:
                     self._imprimirPago(**pago)
 
-          if addAdditional:
-              self.comando.addAdditional(**addAdditional)
-
-          rta = self._cerrarComprobante()
-          self.comando.close()
-          return rta
-
+            rta = self._cerrarComprobante()
+            return rta
         except Exception, e:
-          self.cancelDocument()
-          raise
+            self.comando.cancelAnyDocument()
+            raise
 
     def _abrirComprobante(self,
                           tipo_cbte="T",  # tique
@@ -122,7 +93,9 @@ class TraductorFiscal(TraductorInterface):
                                            nombre_cliente=nombre_cliente,
                                            domicilio_cliente=domicilio_cliente,
                                            referencia=referencia),
-                                           "items": [], "pagos": [], "percepciones": []}
+                                           "items": [], "pagos": [], "percepciones": []
+                        }
+
         printer = self.comando
 
         letra_cbte = tipo_cbte[-1] if len(tipo_cbte) > 1 else None
@@ -155,7 +128,7 @@ class TraductorFiscal(TraductorInterface):
         return ret
 
     def _imprimirItem(self, ds, qty, importe, alic_iva=21., itemNegative=False, discount=0, discountDescription='',
-                      discountNegative=False):
+                      discountNegative=True):
         "Envia un item (descripcion, cantidad, etc.) a una factura"
 
         if importe < 0:
