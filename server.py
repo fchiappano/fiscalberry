@@ -3,6 +3,7 @@
 
 from multiprocessing import freeze_support
 import argparse
+import _thread
 
 from FiscalberryApp import FiscalberryApp
 
@@ -11,11 +12,13 @@ def init_server():
 	
 	fbserver = FiscalberryApp()
 
-	# lanzar discover a URL de servidor configurado con datos del config actual
-	fbserver.discover()
-
-	# iniciar tornado server
-	fbserver.start()
+	try:
+		_thread.start_new_thread( fbserver.discover, ("Thread-1", 2, ) )
+		_thread.start_new_thread( fbserver.ws_socketio, ("Thread-2", 4, ) )
+		_thread.start_new_thread( fbserver.start, ("Thread-3", 4, ) )
+	except:
+		print( "Error: unable to start thread")
+	
 
 
 def send_discover():

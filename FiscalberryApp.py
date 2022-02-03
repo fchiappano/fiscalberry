@@ -134,6 +134,39 @@ class FiscalberryApp:
         self.shutdown()
         self.discover()
         self.start()
+    
+    
+    def ws_socketio(self):
+        sockeioServer = self.configberry.config.get('SERVIDOR', "socketio_server")
+        if sockeioServer :
+            sockeioChannel = self.configberry.config.get('SERVIDOR', "socketio_channel")
+
+            sio = socketio.Client(logger=logger)
+
+          
+            @sio.event
+            def connect():
+                print("I'm connected!")
+                sio.enter_room(sockeioChannel)
+
+            @sio.event
+            def connect_error(data):
+                print("The connection failed!")
+
+            @sio.event
+            def disconnect():
+                print("I'm disconnected!")
+
+            sio.connect("https://dev.paxapos.com:8085")
+            #sio.connect(sockeioServer)
+
+            print("SOCKETIO connected & waiting messages")
+
+            sio.wait()
+
+            print("waiting finished!")
+
+            
 
     def shutdown(self):
         logger.info('Stopping http server')
@@ -204,6 +237,7 @@ class FiscalberryApp:
         tornado.ioloop.IOLoop.current().close()
 
         logger.info("Bye!")
+        
     
     def connectSocketIOServer(self):
         '''' 
