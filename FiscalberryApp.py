@@ -54,6 +54,31 @@ class PageHandler(tornado.web.RequestHandler):
 # inicializar intervalo para verificar que la impresora tenga papel
 #
 
+
+class WSFbHandler(tornado.websocket.WebSocketHandler):
+    def initialize(self, ref_object):
+        self.fbApp = ref_object
+        self.fbApp.clientsFb = []
+
+    def open(self):
+        self.fbApp.clientsFb.append(self)
+        logger.info('WSFbHandler Connection WSFbHandler Established')
+        print(self)
+
+
+    def on_message(self, message):
+        logger.info('WSFbHandler message received WSFbHandler %s' % message)
+        self.write_message(message)
+
+    def on_close(self):
+        self.fbApp.clientsFb.remove(self)
+        logger.info('WSFbHandler connection closed WSFbHandler')
+
+    def check_origin(self, origin):
+        return True
+
+
+
 class WSHandler(tornado.websocket.WebSocketHandler):
     def initialize(self, ref_object):
         self.fbApp = ref_object
@@ -67,6 +92,54 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
 
     def on_message(self, message):
+        self.fbApp.messageReceivedHandler(message, self)
+        
+        self.write_message(response)
+
+    def on_close(self):
+        self.clients.remove(self)
+        logger.info('connection closed')
+
+    def check_origin(self, origin):
+        return True
+
+
+class FiscalberryApp:
+    application = None
+    http_server = None
+    https_server = None
+
+
+    # Fiscaberry WS clients
+    clientsFb = []
+
+    # thread timer para hacer broadcast cuando hay mensaje de la impresora
+    timerPrinterWarnings = None
+
+    def __init__(self):
+        logger.info("Preparando Fiscalberry Server")
+
+        newpath = os.path.dirname(os.path.realpath(__file__))
+        os.chdir(newpath)
+
+        self.configberry = Configberry.Configberry()
+
+        # actualizar ip privada por si cambio
+        ip = self.get_ip()
+        self.configberry.writeSectionWithKwargs('SERVIDOR', {'ip_privada': ip})
+        logger.info("La IP privada es %s" % ip)
+
+
+        # evento para terminar ejecucion mediante CTRL+C
+        def sig_handler(sig, frame):
+            logger.info('Caught signal: %s', sig)
+            tornado.ioloop.IOLoop.instance().add_callback(self.shutdown)
+
+        signal(SIGTERM, sig_handler)
+        signal(SIGINT, sig_handler)       
+
+    def messageReceivedHandler(self, message):
+        
         traductor = self.traductor
         response = {}
         logger.info("Request \n -> %s" % message)
@@ -95,45 +168,6 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             response["err"] = errtxt
 
         logger.info("Response \n <- %s" % response)
-        self.write_message(response)
-
-    def on_close(self):
-        self.clients.remove(self)
-        logger.info('connection closed')
-
-    def check_origin(self, origin):
-        return True
-
-
-class FiscalberryApp:
-    application = None
-    http_server = None
-    https_server = None
-
-    # thread timer para hacer broadcast cuando hay mensaje de la impresora
-    timerPrinterWarnings = None
-
-    def __init__(self):
-        logger.info("Preparando Fiscalberry Server")
-
-        newpath = os.path.dirname(os.path.realpath(__file__))
-        os.chdir(newpath)
-
-        self.configberry = Configberry.Configberry()
-
-        # actualizar ip privada por si cambio
-        ip = self.get_ip()
-        self.configberry.writeSectionWithKwargs('SERVIDOR', {'ip_privada': ip})
-        logger.info("La IP privada es %s" % ip)
-
-
-        # evento para terminar ejecucion mediante CTRL+C
-        def sig_handler(sig, frame):
-            logger.info('Caught signal: %s', sig)
-            tornado.ioloop.IOLoop.instance().add_callback(self.shutdown)
-
-        signal(SIGTERM, sig_handler)
-        signal(SIGINT, sig_handler)       
 
     def restart_service(self):
         self.shutdown()
@@ -157,6 +191,36 @@ class FiscalberryApp:
         if self.configberry.config.has_option('SERVIDOR', "discover_url"):
             fbdiscover = FiscalberryDiscover.send(self.configberry);
 
+
+    def connectToWsFbServer(self):
+        # send discover data to your server if the is no URL configured, so nothing will be sent
+        if self.configberry.config.has_option('SERVIDOR', "socketio_server"):
+            ws_server = self.configberry.config.get('SERVIDOR', "socketio_server")
+
+            ws_server
+
+            conn = yield tornado.websocket.websocket_connect(ws_server)
+            while True:
+                msg = yield conn.read_message()
+                if msg is None: break
+                # Do something with msg
+                logger.info("Mensaje recibido del servidor: %s" % msg)
+
+            
+    def connectWs(self):
+        print("estoy en el connext WS")
+        if self.configberry.config.has_option('SERVIDOR', "socketio_server"):
+            ws_server = self.configberry.config.get('SERVIDOR', "socketio_server")
+            conn = yield tornado.websocket.websocket_connect(ws_server)
+            while True:
+                msg = yield conn.read_message()
+                if msg is None: break
+                
+                # Do something with msg
+                logger.info("llego mensaje desde WEFB %s" % msg)
+
+
+
     def start(self):
         logger.info("Iniciando Fiscalberry Server")
         settings = {  
@@ -164,6 +228,7 @@ class FiscalberryApp:
         }
 
         self.application = tornado.web.Application([
+            (r'/wsfb', WSFbHandler, {"ref_object" : self}),
             (r'/wss', WSHandler, {"ref_object" : self}),
             (r'/ws', WSHandler, {"ref_object" : self}),
             (r'/api', ApiRestHandler),

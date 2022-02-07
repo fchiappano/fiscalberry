@@ -3,6 +3,7 @@
 
 from multiprocessing import freeze_support
 import argparse
+import threading
 
 from FiscalberryApp import FiscalberryApp
 
@@ -11,8 +12,9 @@ def init_server():
 	
 	fbserver = FiscalberryApp()
 
-	# lanzar discover a URL de servidor configurado con datos del config actual
-	fbserver.discover()
+	# conectar con main fiscalberry server waiting for ws messages
+	t1 = threading.Thread(target=fbserver.connectWs,args=(fbserver,));
+	t1.start();
 
 	# iniciar tornado server
 	fbserver.start()
