@@ -4,6 +4,7 @@ discover_url =
 ssl_crt_path = 
 ssl_key_path =
 uuid =
+socketio_server = ws://localhost:12000/wsfb
 
 [IMPRESORA_FISCAL]
 marca = Hasar

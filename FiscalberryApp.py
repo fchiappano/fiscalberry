@@ -13,7 +13,8 @@ import logging.config
 import time
 import ssl
 import Configberry
-import threading 
+import threading
+from WsClientHandler import WsServerHandler
 
 
 import FiscalberryDiscover
@@ -53,29 +54,6 @@ class PageHandler(tornado.web.RequestHandler):
 
 # inicializar intervalo para verificar que la impresora tenga papel
 #
-
-
-class WSFbHandler(tornado.websocket.WebSocketHandler):
-    def initialize(self, ref_object):
-        self.fbApp = ref_object
-        self.fbApp.clientsFb = []
-
-    def open(self):
-        self.fbApp.clientsFb.append(self)
-        logger.info('WSFbHandler Connection WSFbHandler Established')
-        print(self)
-
-
-    def on_message(self, message):
-        logger.info('WSFbHandler message received WSFbHandler %s' % message)
-        self.write_message(message)
-
-    def on_close(self):
-        self.fbApp.clientsFb.remove(self)
-        logger.info('WSFbHandler connection closed WSFbHandler')
-
-    def check_origin(self, origin):
-        return True
 
 
 
@@ -206,18 +184,7 @@ class FiscalberryApp:
                 # Do something with msg
                 logger.info("Mensaje recibido del servidor: %s" % msg)
 
-            
-    def connectWs(self):
-        print("estoy en el connext WS")
-        if self.configberry.config.has_option('SERVIDOR', "socketio_server"):
-            ws_server = self.configberry.config.get('SERVIDOR', "socketio_server")
-            conn = yield tornado.websocket.websocket_connect(ws_server)
-            while True:
-                msg = yield conn.read_message()
-                if msg is None: break
-                
-                # Do something with msg
-                logger.info("llego mensaje desde WEFB %s" % msg)
+        
 
 
 
@@ -228,7 +195,7 @@ class FiscalberryApp:
         }
 
         self.application = tornado.web.Application([
-            (r'/wsfb', WSFbHandler, {"ref_object" : self}),
+            (r'/wsfb', WsServerHandler, {"ref_object" : self}),
             (r'/wss', WSHandler, {"ref_object" : self}),
             (r'/ws', WSHandler, {"ref_object" : self}),
             (r'/api', ApiRestHandler),
