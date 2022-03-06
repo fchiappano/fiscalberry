@@ -730,7 +730,7 @@ class EscPComandos(ComandoInterface):
             if (len(ingresosPorVentas['detalle']) > 0) or ingresosPorVentas['otros']:
                 imprimirTitulo(u"INGRESOS POR COBROS")
 
-                printer.set(TXT_ALIGN_LT, FONT_A, NORMAL, 1, 1)
+                printer.set(LEFT, FONT_A, NORMAL, 1, 1)
                 for cobro in ingresosPorVentas['detalle']:
                     printer.text(pad(cobro['cant'],self.cant_cols," ","l") 
                                 + pad(cobro['tipoPago'][:self.desc_cols-1],self.desc_cols," ","l")
@@ -745,7 +745,7 @@ class EscPComandos(ComandoInterface):
                     totalIngresosPorVenta += float(ingresosPorVentas['otros'])
                     otrosIngresos += float(ingresosPorVentas['otros'])
 
-                printer.set(TXT_ALIGN_LT, FONT_A, BOLD, 1, 1)
+                printer.set(LEFT, FONT_A, BOLD, 1, 1)
                 printer.text(pad("    TOTAL",self.total_cols - self.price_cols, " ", "l")
                             + "$" +  pad(f"{totalIngresosPorVenta:,.2f}", self.price_cols - 1, " ","r") + "\n\n")
 
@@ -756,7 +756,7 @@ class EscPComandos(ComandoInterface):
             if (len(egresosPorPagos['detalle']) > 0) or egresosPorPagos['otros']:
                 imprimirTitulo(u"EGRESOS POR PAGOS")
 
-                printer.set(TXT_ALIGN_LT, FONT_A, NORMAL, 1, 1)
+                printer.set(LEFT, FONT_A, NORMAL, 1, 1)
                 for pago in egresosPorPagos['detalle']:
                     printer.text(pad(pago['cant'],self.cant_cols," ","l") 
                                 + pad(pago['tipoPago'][:self.desc_cols-1],self.desc_cols," ","l")
@@ -771,7 +771,7 @@ class EscPComandos(ComandoInterface):
                     totalEgresosPorPagos += float(egresosPorPagos['otros'])
                     otrosEgresos += float(egresosPorPagos['otros'])
 
-                printer.set(TXT_ALIGN_LT, FONT_A, BOLD, 1, 1)
+                printer.set(LEFT, FONT_A, BOLD, 1, 1)
                 printer.text(pad("    TOTAL",self.total_cols - self.price_cols, " ", "l")
                             + "$" +  pad(f"{totalEgresosPorPagos:,.2f}", self.price_cols - 1, " ","r") + "\n\n")
 
@@ -786,7 +786,7 @@ class EscPComandos(ComandoInterface):
 
                 imprimirTitulo(u"RETIROS DE CAJA")
 
-                printer.set(TXT_ALIGN_LT, FONT_A, NORMAL, 1, 1)
+                printer.set(LEFT, FONT_A, NORMAL, 1, 1)
 
                 for retiro in retiros:
                     fechaRetiro = datetime.datetime.strptime(retiro['fechaTraspaso'], '%Y-%m-%d %H:%M:%S').strftime('%d/%m/%Y %H:%M',)
@@ -799,7 +799,7 @@ class EscPComandos(ComandoInterface):
                     #     printer.text(retiro['observacion'])        
 
                 printer.text("\n")
-                printer.set(TXT_ALIGN_LT, FONT_A, BOLD, 1, 1)
+                printer.set(LEFT, FONT_A, BOLD, 1, 1)
                 printer.text(pad("    TOTAL",self.total_cols - self.price_cols, " ", "l")
                             + "$" +  pad(f"{totalRetiros:,.2f}", self.price_cols - 1, " ","r") + "\n\n")
 
@@ -825,7 +825,7 @@ class EscPComandos(ComandoInterface):
                     #     printer.text(ingreso['observacion'])
 
                 printer.text("\n")
-                printer.set(TXT_ALIGN_LT, FONT_A, BOLD, 1, 1)
+                printer.set(LEFT, FONT_A, BOLD, 1, 1)
                 printer.text(pad("    TOTAL",self.total_cols - self.price_cols, " ", "l")
                             + "$" +  pad(f"{totalIngresos:,.2f}", self.price_cols - 1, " ","r") + "\n\n")
         
@@ -837,7 +837,7 @@ class EscPComandos(ComandoInterface):
 
         imprimirTitulo(u"RESÚMEN (Efectivo)", 1, 2)
 
-        printer.set(TXT_ALIGN_LT, FONT_A, NORMAL, 1, 1)
+        printer.set(LEFT, FONT_A, NORMAL, 1, 1)
 
         ingresosDict = {"Importe Inicial:"    : f"{float(encabezado['importeInicial']):,.2f}",
                         "Ingresos por Cobros:": f"{ingresosEfectivo:,.2f}",
@@ -848,12 +848,12 @@ class EscPComandos(ComandoInterface):
             printer.text(pad("+",self.cant_cols," ","l") + pad(key,self.desc_cols," ","l") + "$" + 
                          pad(ingresosDict[key],self.price_cols - 1 ," ","r") + "\n")
         
-        printer.set(TXT_ALIGN_LT, FONT_A, BOLD, 1, 1)
+        printer.set(LEFT, FONT_A, BOLD, 1, 1)
 
         sumaIngresos = (ingresosEfectivo + totalIngresos + float(encabezado['importeInicial']))
         printer.text(" " * (self.total_cols - self.price_cols) + "$" + pad(f"{sumaIngresos:,.2f}",self.price_cols - 1, " ","r") + "\n\n")
         
-        printer.set(TXT_ALIGN_LT, FONT_A, NORMAL, 1, 1)
+        printer.set(LEFT, FONT_A, NORMAL, 1, 1)
 
         egresosDict = {"Retiros de Caja:"   :   f"{totalRetiros:,.2f}",
                        "Egresos por Pagos"  :   f"{egresosEfectivo:,.2f}",
@@ -864,12 +864,12 @@ class EscPComandos(ComandoInterface):
             printer.text(pad("-",self.cant_cols," ","l") + pad(key,self.desc_cols," ","l") + "$" + 
                          pad(egresosDict[key],self.price_cols - 1 ," ","r") + "\n")
 
-        printer.set(TXT_ALIGN_LT, FONT_A, BOLD, 1, 1) 
+        printer.set(LEFT, FONT_A, BOLD, 1, 1) 
 
         sumaEgresos = (egresosEfectivo + totalRetiros + importeFinal)
         printer.text(" " * (self.total_cols - self.price_cols)+ "$" + pad(f"{sumaEgresos:,.2f}",self.price_cols - 1, " ","r") + "\n\n")
         
-        printer.set(TXT_ALIGN_LT, FONT_A, BOLD, 1, 2, density=1,invert=True)
+        printer.set(LEFT, FONT_A, BOLD, 1, 2, density=1,invert=True)
 
         montoSaldo = float(encabezado['diferencia'])
         if (montoSaldo < 0):
@@ -893,6 +893,6 @@ class EscPComandos(ComandoInterface):
         printer.text(datetime.datetime.strftime(datetime.datetime.now(), '%d/%m/%y %H:%M'))
 
 
-        printer.set(TXT_ALIGN_LT,FONT_A, NORMAL, 1, 1)
+        printer.set(LEFT,FONT_A, NORMAL, 1, 1)
         printer.cut(PARTIAL_CUT)
         printer.end()

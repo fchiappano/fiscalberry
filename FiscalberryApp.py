@@ -1,4 +1,3 @@
-from http.client import HTTPConnection
 import tornado
 from Traductores.TraductoresHandler import TraductoresHandler, TraductorException
 import sys
