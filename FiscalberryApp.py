@@ -1,4 +1,4 @@
-
+from http.client import HTTPConnection
 import tornado
 from Traductores.TraductoresHandler import TraductoresHandler, TraductorException
 import sys
@@ -9,6 +9,7 @@ import logging
 import logging.config
 import Configberry
 import socketio
+from socketio import exceptions
 
 
 import FiscalberryDiscover
@@ -130,43 +131,12 @@ class FiscalberryApp:
         signal(SIGTERM, sig_handler)
         signal(SIGINT, sig_handler)       
 
+
     def restart_service(self):
         self.shutdown()
         self.discover()
         self.start()
     
-    
-    def ws_socketio(self):
-        sockeioServer = self.configberry.config.get('SERVIDOR', "socketio_server")
-        if sockeioServer :
-            sockeioChannel = self.configberry.config.get('SERVIDOR', "socketio_channel")
-
-            sio = socketio.Client(logger=logger)
-
-          
-            @sio.event
-            def connect():
-                print("I'm connected!")
-                sio.enter_room(sockeioChannel)
-
-            @sio.event
-            def connect_error(data):
-                print("The connection failed!")
-
-            @sio.event
-            def disconnect():
-                print("I'm disconnected!")
-
-            sio.connect("https://dev.paxapos.com:8085")
-            #sio.connect(sockeioServer)
-
-            print("SOCKETIO connected & waiting messages")
-
-            sio.wait()
-
-            print("waiting finished!")
-
-            
 
     def shutdown(self):
         logger.info('Stopping http server')
@@ -210,7 +180,7 @@ class FiscalberryApp:
         self.http_server = tornado.httpserver.HTTPServer(self.application)
         puerto = self.configberry.config.get('SERVIDOR', "puerto")
         self.http_server.listen(puerto)
-        logger.info('*** Websocket Server Started as HTTP at %s port %s***' % (myIP, puerto))
+        logger.info('***Websocket Server Started as HTTP at %s port %s***' % (myIP, puerto))
 
 
         hasCrt = self.configberry.config.has_option('SERVIDOR', "ssl_crt_path")
@@ -231,7 +201,7 @@ class FiscalberryApp:
 
         self.print_printers_resume()
        
-        self.connectSocketIOServer()
+        #self.connectSocketIOServer()
 
         tornado.ioloop.IOLoop.current().start()
         tornado.ioloop.IOLoop.current().close()
@@ -239,21 +209,61 @@ class FiscalberryApp:
         logger.info("Bye!")
         
     
-    def connectSocketIOServer(self):
-        '''' 
-        se conecta al socketio server
-        siempre y cuando tenga en el config la clave GET
-        para recibir los mensajes de la impresora 
-        escucha al canal de su mismo UUID
-        '''
-        if self.configberry.config.has_option('SERVER', 'SERVIDOR_SOCKET_IO'):
-            socketio_url = self.configberry.config.get('SERVER', 'SERVIDOR_SOCKET_IO')
-            if socketio_url:
-                logger.info("Conectando al socketio server %s" % socketio_url)
-                self.socketio_client = socketio.Client()
-                self.socketio_client.connect(socketio_url)
-                logger.info("Conectado al socketio server %s" % socketio_url)
-      
+    def startSocketIO(self, isServer):   
+    
+        def startSocketIOServer(): pass
+
+        def startSocketIOClient(socketioServer, uuid):
+
+            hostname = socket.gethostname()
+
+            sio = socketio.Client(logger=logger, reconnection_delay=2)
+
+            def sendRawData():
+                i=0
+                while (i<5):
+                    if sio.connected: sio.emit('mesa:add', {'iteration': i})
+                    sio.sleep(2)
+
+            def printComand(comando):
+                print(f"SocketIO JSON => {comando}")
+
+            @sio.event
+            def connect():
+                logger.info(f"Conectado al servidor SocketIO '{uuid}' @ {socketioServer}")
+                sio.start_background_task(sendRawData)
+
+            @sio.event
+            def disconnect():
+                print("Desconectado del Servidor")
+            
+            @sio.event
+            def connect_error(error):
+                logger.error("No se puede conectar al Servidor")
+
+            @sio.event
+            def printComando(json):
+                sio.start_background_task(printComand,json)
+            
+            sio.connect(socketioServer, headers={"UUID":uuid})                       
+
+            # sio.wait()
+
+
+        logger.info("Preparando SocketIO " + ("Server" if isServer else "Client"))
+
+        if (self.configberry.config.has_option('SERVIDOR','servidor_socket_io') and self.configberry.config.has_option('SERVIDOR','uuid')):
+
+            socketioServer = self.configberry.config.get('SERVIDOR', "servidor_socket_io")
+            socketioChannel = self.configberry.config.get('SERVIDOR', "uuid")
+
+            if (socketioServer and socketioChannel):
+                startSocketIOClient(socketioServer, socketioChannel) if not isServer else startSocketIOServer()
+            else:                
+                logger.error(f"No se puede iniciar la conexión al servidor SocketIO por falta de parámetros")
+
+
+
 
     def get_ip(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -277,11 +287,11 @@ class FiscalberryApp:
             logger.info("Impresora disponible:")
         for printer in printers:
             logger.info("  - %s" % printer)
-            modelo = None
+            #modelo = None
             marca = self.configberry.config.get(printer, "marca")
             driver = "default"
             if self.configberry.config.has_option(printer, "driver"):
                 driver = self.configberry.config.get(printer, "driver")
-            if self.configberry.config.has_option(printer, "modelo"):
-                modelo = self.configberry.config.get(printer, "modelo")
+            # if self.configberry.config.has_option(printer, "modelo"):
+            #     modelo = self.configberry.config.get(printer, "modelo")
             logger.info("      marca: %s, driver: %s" % (marca, driver))
