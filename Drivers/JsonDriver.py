@@ -55,13 +55,14 @@ class JsonDriver(DriverInterface):
 			print(reply.content)
 			print("salio la respuesta")
 			return reply.content
-			
-		except requests.exceptions.Timeout:			
+		
+		except requests.exceptions.Timeout as e:			
 		    # Maybe set up for a retry, or continue in a retry loop
-		    logging.getLogger().error("timeout de conexion con la impresora fiscal")
+			logging.getLogger().error("timeout de conexion con la impresora fiscal")
+
 		except requests.exceptions.RequestException as e:
 		    # catastrophic error. bail.
-		    logging.getLogger().error(str(e))
+			logging.getLogger().error(str(e))
 		
 		
 

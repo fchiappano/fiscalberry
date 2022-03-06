@@ -74,7 +74,7 @@ class Epson2GenComandos(ComandoFiscalInterface):
 
 	def setHeader(self, headerlist=[]):
 		"""Establecer encabezado"""
-		print headerlist
+		print(headerlist)
 		line=1
 		while line <= len(headerlist):
 			texto = c_char_p(headerlist[line-1]).value
@@ -105,7 +105,7 @@ class Epson2GenComandos(ComandoFiscalInterface):
 
 	def _setCustomerData(self, name=" ", address=" ", doc=" ", docType=" ", ivaType="T"):
 		#nombre, segunda línea nombre, primer segunda y tercera línea dirección, tipo de documento, número de documento y tipo de responsabilidad ante el IVA
-		self.conector.driver.EpsonLibInterface.CargarDatosCliente(name, None, address, None, None, self.docTypes.get(docType), doc, self.ivaTypes.get(ivaTypes))
+		self.conector.driver.EpsonLibInterface.CargarDatosCliente(name, None, address, None, None, self.docTypes.get(docType), doc, self.ivaTypes.get(ivaType))
 		
 
 	# Documentos no fiscales
@@ -178,16 +178,16 @@ class Epson2GenComandos(ComandoFiscalInterface):
 		"""Abre documento fiscal
 		str comprobanteType
 
-		• 1 – Tique.
-		• 2 – Tique factura A/B/C/M.
-		• 3 – Tique nota de crédito, tique nota crédito A/B/C/M.
-		• 4 – Tique nota de débito A/B/C/M.
-		• 21 – Documento no fiscal homologado genérico.
-		• 22 – Documento no fiscal homologado de uso interno.
+		• 1 - Tique.
+		• 2 - Tique factura A/B/C/M.
+		• 3 - Tique nota de crédito, tique nota crédito A/B/C/M.
+		• 4 - Tique nota de débito A/B/C/M.
+		• 21 - Documento no fiscal homologado genérico.
+		• 22 - Documento no fiscal homologado de uso interno.
 		"""
 		numcomp = self.comprobanteTypes[comprobanteType]
 		err = self.conector.driver.EpsonLibInterface.AbrirComprobante( numcomp )
-		print err
+		print (err)
 		logging.getLogger().info("Abrio comprobante  : %s" % (err) )
 		
 
@@ -315,7 +315,7 @@ class Epson2GenComandos(ComandoFiscalInterface):
 		self.cancelDocument()
 
 		retLenght = 28
-  		ret = create_string_buffer( b'\000' * retLenght )
+		ret = create_string_buffer( b'\000' * retLenght )
 		self.conector.driver.EpsonLibInterface.ConsultarNumeroComprobanteUltimo(ret, retLenght)
 
 		self.close()

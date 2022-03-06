@@ -136,7 +136,7 @@ class EpsonComandos(ComandoFiscalInterface):
             docType = 'DOC_TYPE_DNI'
         return self._openBillCreditTicket(type, name, address, doc, docType, ivaType, isCreditNote=False)
 
-    def _openBillCreditTicketParams(self, tktype, isCreditNote, ivaType, name, docType, address):
+    def _openBillCreditTicketParams(self, tktype, isCreditNote, ivaType, name, doc, docType, address):
         return [  isCreditNote and "M" or "T",  # Ticket NC o Factura
                   "C",  # Tipo de Salida - Ignorado
                   tktype,  # Tipo de FC (A/B/C)
@@ -195,7 +195,7 @@ class EpsonComandos(ComandoFiscalInterface):
         else:
             if not ivaType:
                 ivaType = 'F'  # Default is Consumidor Final
-            parameters = self._openBillCreditTicketParams(tktype, isCreditNote, ivaType, name, docType, address)
+            parameters = self._openBillCreditTicketParams(tktype, isCreditNote, ivaType, name, doc, docType, address)
         if isCreditNote:
             self._currentDocument = self.CURRENT_DOC_CREDIT_TICKET
         else:

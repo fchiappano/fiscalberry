@@ -86,11 +86,11 @@ class Sam4s2GenComandos(ComandoFiscalInterface):
 
 	esFacturaA = False
 
-    def start(self):
-        pass
+	def start(self):
+		pass
 
-    def close(self):
-        pass
+	def close(self):
+		pass
 
 	def getStatus(self, *args):
 		jdata = OrderedDict()
@@ -114,10 +114,10 @@ class Sam4s2GenComandos(ComandoFiscalInterface):
 		try:
 			result = self.conector.sendCommand(jsonData)
 			return result
-		except PrinterException, e:
+		except PrinterException as e:
 			logging.getLogger().error("PrinterException: %s" % str(e))
-    		raise Exception("Error de la impresora fiscal: %s.\nComando enviado: %s" % \
-                           		(str(e), commandString))
+			raise Exception("Error de la impresora fiscal: %s.\nComando enviado: %s" % \
+                           		(str(e)))
 
 	# Documentos no fiscales
 

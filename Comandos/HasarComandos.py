@@ -3,7 +3,7 @@ import string
 import types
 from Comandos.ComandoFiscalInterface import ComandoFiscalInterface
 from Drivers.FiscalPrinterDriver import PrinterException
-from ComandoInterface import formatText, ComandoException
+from ComandoInterface import formatText, ComandoException, ValidationError
 
 NUMBER = 999990
 import logging
@@ -153,7 +153,7 @@ class HasarComandos(ComandoFiscalInterface):
             ret = self.conector.sendCommand(commandNumber, parameters, skipStatusErrors)
             logger.debug("<- sendCommand reply: %s" % ret)
             return ret
-        except PrinterException, e:
+        except PrinterException as e:
             logger.exception("PrinterException: %s" % str(e))
             raise ComandoException("Error de la impresora fiscal: %s.\nComando enviado: %s" %
                                    (str(e), commandString))
@@ -226,7 +226,7 @@ class HasarComandos(ComandoFiscalInterface):
 
         if ivaType != "C" and (not doc or docType != "C"):
             raise ValidationError("Error, si el tipo de IVA del cliente NO es consumidor final, "
-                                  "debe ingresar su n�mero de CUIT.")
+                                  "debe ingresar su numero de CUIT.")
         parameters = [self._formatText(name, 'customerName'),
                       doc or " ",
                       ivaType,  # Iva Comprador
@@ -379,7 +379,7 @@ class HasarComandos(ComandoFiscalInterface):
         priceUnit = price
         priceUnitStr = str(priceUnit).replace(",", ".")
 
-        if isinstance(iva, basestring):
+        if isinstance(iva, str):
             ivaStr = iva.replace(",", ".")
         else:
             ivaStr = str(float(iva)).replace(",", ".")
@@ -391,7 +391,7 @@ class HasarComandos(ComandoFiscalInterface):
         priceUnit = price
         priceUnitStr = str(priceUnit).replace(",", ".")
 
-        if isinstance(iva, basestring):
+        if isinstance(iva, str):
             ivaStr = iva.replace(",", ".")
         else:
             ivaStr = str(float(iva)).replace(",", ".")

@@ -132,9 +132,9 @@ def formatText(text):
 
 
 class ComandoInterface:
-    """Interfaz que deben cumplir las impresoras fiscales."""
+    """Interfaz que deben cumplir las impresoras."""
 
-    DEFAULT_DRIVER = None
+    DEFAULT_DRIVER = None   
 
     def __init__(self, *args, **kwargs):
         self.model = kwargs.pop("modelo", None)
@@ -147,6 +147,12 @@ class ComandoInterface:
         traductorModule = importlib.import_module(self.traductorModule)
         traductorClass = getattr(traductorModule, self.traductorModule[12:])
         self.traductor = traductorClass(self, *args)
+
+        # seteo anchos de columnas
+        self.total_cols = self.conector.driver.cols
+        self.price_cols = 12
+        self.cant_cols = 4
+        self.desc_cols =  self.total_cols - self.cant_cols - self.price_cols
 
     def _sendCommand(self, commandNumber, parameters, skipStatusErrors=False):
         raise Exception("NotImplementedException")

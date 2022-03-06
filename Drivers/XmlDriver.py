@@ -31,7 +31,8 @@ class XmlDriver(JsonDriver):
 			
 		except requests.exceptions.Timeout:			
 		    # Maybe set up for a retry, or continue in a retry loop
-		    logging.getLogger().error("titeout de conexion con la fiscal")
+			logging.getLogger().error("titeout de conexion con la fiscal")
+			
 		except requests.exceptions.RequestException as e:
 		    # catastrophic error. bail.
 		    logging.getLogger().error(str(e))

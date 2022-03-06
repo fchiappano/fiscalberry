@@ -122,7 +122,7 @@ class Hasar2GenComandos(ComandoFiscalInterface):
 	def printNonFiscalText(self, text):
 		"""Imprime texto fiscal. Si supera el límite de la linea se trunca."""
 		pass
-		{"ImprimirTextoGenerico":{
+		jdata = {"ImprimirTextoGenerico":{
 			"Atributos" : [ "Negrita" ],
 			"Texto" : text,
 			"ModoDisplay" : "DisplayNo"

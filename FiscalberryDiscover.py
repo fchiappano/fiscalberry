@@ -21,8 +21,8 @@ def send(configberry):
         "raw_data": json.dumps(configberry.getJSON())
     }
 
-
-    discoverUrl = configberry.config.get('SERVIDOR', "discover_url")
+    if configberry.config.has_option('SERVIDOR', 'discover_url'):
+        discoverUrl = configberry.config.get('SERVIDOR', "discover_url")
 
     ret = None
     if discoverUrl:

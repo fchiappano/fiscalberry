@@ -53,12 +53,12 @@ class HasarDriver(FiscalPrinterDriver):
 
     def _sendAndWaitAck(self, message, count=0):
         if count > 10:
-            raise ComunicationError, "Demasiados NAK desde la impresora. Revise la conexión."
+            raise ComunicationError("Demasiados NAK desde la impresora. Revise la conexión.")
         self._write(message)
         timeout = time.time() + self.WAIT_TIME
         while 1:
             if time.time() > timeout:
-                raise ComunicationError, "Expiró el tiempo de espera para una respuesta de la impresora. Revise la conexión."
+                raise ComunicationError("Expiró el tiempo de espera para una respuesta de la impresora. Revise la conexión.")
             c = self._read(1)
             if len(c) == 0:
                 continue
@@ -75,7 +75,7 @@ class HasarDriver(FiscalPrinterDriver):
         retries = 0
         while 1:
             if time.time() > timeout:
-                raise ComunicationError, "Expiró el tiempo de espera para una respuesta de la impresora. Revise la conexión."
+                raise ComunicationError("Expiró el tiempo de espera para una respuesta de la impresora. Revise la conexión.")
             c = self._read(1)
             if len(c) == 0:
                 continue
@@ -100,7 +100,7 @@ class HasarDriver(FiscalPrinterDriver):
                         noreplyCounter += 1
                         time.sleep(self.WAIT_CHAR_TIME)
                         if noreplyCounter > self.NO_REPLY_TRIES:
-                            raise ComunicationError, "Fallo de comunicación mientras se recibía la respuesta de la impresora."
+                            raise ComunicationError("Fallo de comunicación mientras se recibía la respuesta de la impresora.")
                     else:
                         noreplyCounter = 0
                         reply += c
@@ -111,7 +111,7 @@ class HasarDriver(FiscalPrinterDriver):
                     timeout = time.time() + self.WAIT_TIME
                     retries += 1
                     if retries > self.RETRIES:
-                        raise ComunicationError, "Fallo de comunicación, demasiados paquetes inválidos (bad bcc)."
+                        raise ComunicationError("Fallo de comunicación, demasiados paquetes inválidos (bad bcc).")
                     continue
                 elif reply[1] != chr(self._sequenceNumber):  # Los número de seq no coinciden
                     # Reenvío el mensaje
@@ -120,7 +120,7 @@ class HasarDriver(FiscalPrinterDriver):
                     timeout = time.time() + self.WAIT_TIME
                     retries += 1
                     if retries > self.RETRIES:
-                        raise ComunicationError, "Fallo de comunicación, demasiados paquetes inválidos (bad sequenceNumber)."
+                        raise ComunicationError("Fallo de comunicación, demasiados paquetes inválidos (bad sequenceNumber).")
                     continue
                 else:
                     # Respuesta OK

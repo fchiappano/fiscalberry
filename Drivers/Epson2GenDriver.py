@@ -44,11 +44,11 @@ class Epson2GenDriver(DriverInterface):
 	#	“lan:192.168.1.1:443” – Http ip 192.168.1.1 puerto 443
 	#
 	def __init__(self, path='serial: /dev/usb/lp0', baudrate=9600):
-		print "-"*25
-		print "*"*25
-		print "   EPSON FISCAL"
-		print "*"*25
-		print "-"*25
+		print("-"*25)
+		print("*"*25)
+		print("   EPSON FISCAL")
+		print("*"*25)
+		print("-"*25)
 
 		self.port = path
 		self.baudrate = baudrate
@@ -68,24 +68,24 @@ class Epson2GenDriver(DriverInterface):
 		int_minor = c_int()
 
 		error = self.EpsonLibInterface.ConsultarVersionEquipo( str_version, c_int(str_version_max_len).value, byref(int_major), byref(int_minor) )
-		print "Machinne Version        : ",
-		print error
-		print "String Machinne Version : ",
-		print str_version.value
-		print "Major Machinne Version  : ",
-		print int_major.value
-		print "Minor Machine Version   : ",
-		print int_minor.value
+		print("Machinne Version        : ",)
+		print(error)
+		print("String Machinne Version : ",)
+		print(str_version.value)
+		print("Major Machinne Version  : ",)
+		print(int_major.value)
+		print("Minor Machine Version   : ",)
+		print(int_minor.value)
 
 
 		# status
 		error = self.EpsonLibInterface.ConsultarEstadoDeConexion()
-		print "Conexion Status         : ",
-		print error
+		print("Conexion Status         : ",)
+		print(error)
 
 		error = self.EpsonLibInterface.ComenzarLog()
-		print "Log iniciado Status         : ",
-		print error
+		print("Log iniciado Status         : ",)
+		print(error)
 
 		logging.getLogger().info("Conectada la Epson 2Gen al puerto  : %s" % (self.port) )
 
@@ -94,11 +94,11 @@ class Epson2GenDriver(DriverInterface):
 
 		# get last error
 		error = self.EpsonLibInterface.ConsultarUltimoError()
-		print "Last Error            : ",
-		print error
+		print("Last Error            : ",)
+		print(error)
 
 		
-		self.EpsonLibInterface.Desconectar();
+		self.EpsonLibInterface.Desconectar()
 		logging.getLogger().info("DESConectada la Epson 2Gen al puerto: %s" % (self.port) )
 
 	def ObtenerEstadoFiscal(self):
@@ -107,12 +107,12 @@ class Epson2GenDriver(DriverInterface):
 	def sendCommand(self, commandNumber, fields, skipStatusErrors=False):
 		pass
 
-	def ImprimirAuditoria( desde, hasta, id_modificador = 500):
+	def ImprimirAuditoria( self, desde, hasta, id_modificador = 500):
 		"""
 
 		id_modificador 		integer
-		• 500 – Auditoría detallada.
-		• 501 – Auditoría resumida.
+		• 500 - Auditoría detallada.
+		• 501 - Auditoría resumida.
 		
 		Número o fecha del cierre Z inicial.
 		desde string
@@ -132,9 +132,9 @@ class Epson2GenDriver(DriverInterface):
 		"""
 		Integer CargarAjuste( 
 			Integer id_modificador, 
-				• 400 – Descuento.
-				• 401 – Ajuste.
-				• 402 – Ajuste negativo.
+				• 400 - Descuento.
+				• 401 - Ajuste.
+				• 402 - Ajuste negativo.
 			String descripcion,
 			String monto,  “nnnnnnnnnn.nn”. (10,2)
 			int id_tasa
@@ -168,8 +168,8 @@ class Epson2GenDriver(DriverInterface):
 
 
 
-		print " OoO "*25
-		print "imprime item modif %s - dec: %s qty: %s - precio %s - Iva %s " % (id_modificador, description, qty, precio, id_tasa_iva)
+		print(" OoO "*25)
+		print("imprime item modif %s - dec: %s qty: %s - precio %s - Iva %s " % (id_modificador, description, qty, precio, id_tasa_iva))
 
 
 		return self.EpsonLibInterface.ImprimirItem(id_modificador, description, qty, precio, id_tasa_iva,ii_id,ii_valor,id_codigo,codigo,codigo_unidad_matrix,codigo_unidad_medida)

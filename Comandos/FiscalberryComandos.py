@@ -2,7 +2,7 @@
 
 import requests
 import logging
-from ComandoInterface import ComandoInterface, ComandoException, ValidationError, FiscalPrinterError, formatText
+from ComandoInterface import ComandoInterface, ComandoException, ValidationError
 
 
 class PrinterException(Exception):
