@@ -118,14 +118,14 @@ class FiscalPrinterDriver(DriverInterface):
         for value, message in self.printerStatusErrors:
             if (value & x) == value:
                 logger.warning(message)
-                raise PrinterStatusError, message
+                raise PrinterStatusError(message)
 
     def _parseFiscalStatus(self, fiscalStatus):
         x = int(fiscalStatus, 16)
         for value, message in self.fiscalStatusErrors:
             if (value & x) == value:
                 logger.warning(message)
-                raise FiscalStatusError, message
+                raise FiscalStatusError(message)
 
     def _checkReplyBCC(self, reply, bcc):
         checkSum = sum([ord(x) for x in reply])

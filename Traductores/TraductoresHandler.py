@@ -3,22 +3,15 @@
 import json
 import Configberry
 import importlib
-import socket
 import threading
-import tornado.ioloop
-import os
 from multiprocessing import Process, Queue, Pool
+import logging
 
 import sys
 if sys.platform == 'win32':
     import multiprocessing.reduction    # make sockets pickable/inheritable
 
-
 INTERVALO_IMPRESORA_WARNING = 30.0
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 def set_interval(func, sec):
     def func_wrapper():
@@ -37,11 +30,8 @@ def set_interval(func, sec):
 class TraductorException(Exception):
     pass
 
-
-
 def init_printer_traductor(printerName):
     config = Configberry.Configberry()
-
     try:
         dictSectionConf = config.get_config_for_printer(printerName)
     except KeyError as e:
@@ -58,7 +48,7 @@ def init_printer_traductor(printerName):
     return comando.traductor
 
 def runTraductor(jsonTicket, queue):
-    logging.info("mandando comando de impresora")
+    logging.info("Mandando comando de impresora")
     print(jsonTicket)
     printerName = jsonTicket['printerName']
     traductor = init_printer_traductor(printerName)
@@ -71,8 +61,7 @@ def runTraductor(jsonTicket, queue):
             queue.put(strError)
             logging.error(strError)
 
-
-
+            
 
 class TraductoresHandler:
     """Convierte un JSON a Comando Fiscal Para Cualquier tipo de Impresora fiscal"""
@@ -86,16 +75,25 @@ class TraductoresHandler:
         self.webSocket = webSocket
         self.fbApp = fbApp
 
-    def json_to_comando(self, jsonTicket):
-        import time        
+    async def json_to_comando(self, jsonTicket): 
+        """Leer y procesar una factura en formato JSON 
+        ``jsonTicket`` factura a procesar
+        """
         traductor = None
         
+        rta = {"rta": ""}
+
         try:
-            """ leer y procesar una factura en formato JSON
-            """
             logging.info(f"Iniciando procesamiento de json:::: {json.dumps(jsonTicket)}")
 
-            rta = {"rta": ""}
+            # Interceptar la key 'uuid'
+            if 'uuid' in jsonTicket:
+                uuidFb = jsonTicket.pop("uuid")
+                if (self.fbApp.isSioServer):
+                    status = await self.fbApp.socketio.sendCommand(command=jsonTicket,uuid=uuidFb)
+                    rta["rta"] = {"action":"sio:sendCommand", "rta": "Sent"} if status else {"action":"sio:sendCommand", "rta": "Failed"}                        
+                    return rta
+
             # seleccionar impresora
             # esto se debe ejecutar antes que cualquier otro comando
             if 'printerName' in jsonTicket:
@@ -110,34 +108,27 @@ class TraductoresHandler:
                     rta["rta"] = q.get(timeout=1)
                 q.close()
 
-            # aciones de comando genericos de Status y Control
+            # Acciones de comando genericos de Status y Control
             elif 'getStatus' in jsonTicket:
                 rta["rta"] = self._getStatus()
 
-            # TODO reinicia
             elif 'reboot' in jsonTicket:
                 rta["rta"] = self._reboot()
 
-            #  TODO 'restart': FiscalberryApp [INFO]: Response 
-            #  <- {'err': 'Socket error: [Errno 98] Address already in use'}
-            # /usr/lib/python3.9/asyncio/base_events.py:667: RuntimeWarning: coroutine 'WebSocketProtocol13.write_message.<locals>.wrapper' was never awaited
-            #   self._ready.clear()
-            # RuntimeWarning: Enable tracemalloc to get the object allocation traceback
             elif 'restart' in jsonTicket:
                 rta["rta"] = self._restartService()
 
-            # TODO 'upgrade'
             elif 'upgrade' in jsonTicket:
                 rta["rta"] = self._upgrade()
 
             elif 'getPrinterInfo' in jsonTicket:
                 rta["rta"] =  self._getPrinterInfo(jsonTicket["getPrinterInfo"])
 
-            elif 'getAvaliablePrinters' in jsonTicket:
-                rta["rta"] = self._getAvaliablePrinters()
+            elif 'getAvailablePrinters' in jsonTicket:
+                rta["rta"] = self._getAvailablePrinters()
 
-            elif 'getActualConfig' in jsonTicket:
-                rta["rta"] = self._getActualConfig()
+            elif 'getActualConfig' in jsonTicket: #pasarle la contraseña porque muestra datos del servidor y la mostraría
+                rta["rta"] = self._getActualConfig(jsonTicket['getActualConfig'])
 
             elif 'configure' in jsonTicket:
                 rta["rta"] = self._configure(**jsonTicket["configure"])
@@ -145,22 +136,37 @@ class TraductoresHandler:
             elif 'removerImpresora' in jsonTicket:
                 rta["rta"] =  self._removerImpresora(jsonTicket["removerImpresora"])
 
-            else:
+            ### Comandos Socket.io Server
+            elif 'flushDisconnectedClients' in jsonTicket:
+                rta["rta"] = await self.fbApp.socketio.flushDisconnectedClients()
 
-                logger.error("No se pasó un comando válido")
+            elif 'listClients' in jsonTicket:
+                rta["rta"] = await self.fbApp.socketio.listClients()
+
+            elif 'getClientConfig' in jsonTicket:
+                rta["rta"] = await self.fbApp.socketio.getClientConfig(jsonTicket['getClientConfig'])
+            
+            elif 'disconnectClient' in jsonTicket:
+                rta["rta"] = await self.fbApp.socketio.disconnectByUuid(jsonTicket['disconnectClient'])
+
+            elif 'disconnectAll' in jsonTicket:
+                rta["rta"] = await self.fbApp.socketio.disconnectAll()
+
+            else:
+                logging.error("No se pasó un comando válido")
                 raise TraductorException("No se pasó un comando válido")
 
             # cerrar el driver
             if traductor and traductor.comando:
                 traductor.comando.close()
 
-            return rta
-
         except Exception as e:
             # cerrar el driver
             if traductor and traductor.comando:
                 traductor.comando.close()
             raise
+
+        return rta
 
     def getWarnings(self):
         """ Recolecta los warning que puedan ir arrojando las impresoraas
@@ -240,11 +246,11 @@ class TraductoresHandler:
 
 
 
-    def _getAvaliablePrinters(self):
+    def _getAvailablePrinters(self):
 
         # la primer seccion corresponde a SERVER, el resto son las impresoras
         rta = {
-            "action": "getAvaliablePrinters",
+            "action": "getAvailablePrinters",
             "rta": self.config.sections()[1:]
         }
 
@@ -270,11 +276,10 @@ class TraductoresHandler:
             return rta
         except Exception:
             # ok, no quiere conectar, continuar sin hacer nada
-            print("No hay caso, probe de reconectar pero no se pudo")
+            logging.warning("No hay caso, probe de reconectar pero no se pudo")
 
-    def _getActualConfig(self):
-        rta = {
-            "action": "getActualConfig",
-            "rta": self.config.get_actual_config()
-        }
+    def _getActualConfig(self, password):
+        rta = {"action":"getActualConfig", "rta":"Contraseña incorrecta"}
+        if password == self.config.config.get("SERVIDOR", 'sio_password',fallback="password"):
+            rta['rta']=self.config.get_actual_config()
         return rta

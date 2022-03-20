@@ -98,10 +98,10 @@ class BematechComandos(ComandoInterface):
         try:
             ret = self.conector.sendCommand(comando, skipStatusErrors)
             return ret
-        except PrinterException, e:
+        except PrinterException as e:
             logging.getLogger().error("PrinterException: %s" % str(e))
             raise ComandoException("Error de la impresora: %s.\nComando enviado: %s" % \
-                                   (str(e), commandString))
+                                   (str(e), comando))
 
     def align_left(self, texto):
         self._sendCommand(self.ALIGN)
@@ -124,8 +124,8 @@ class BematechComandos(ComandoInterface):
         self._sendCommand(self.ALIGN_LEFT)
 
     def print_mesa_mozo(self, mesa, mozo):
-        self.doble_alto_x_linea("Mesa: %s" % mesa);
-        self.doble_alto_x_linea("Mozo: %s" % mozo);
+        self.doble_alto_x_linea("Mesa: %s" % mesa)
+        self.doble_alto_x_linea("Mozo: %s" % mozo)
 
     def printRemito(self, mesa, items, cliente=None):
         return True

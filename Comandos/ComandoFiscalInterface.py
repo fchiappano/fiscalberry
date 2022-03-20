@@ -47,13 +47,13 @@ class ComandoFiscalInterface(ComandoInterface.ComandoInterface):
 
 
     def _sendCommand(self, commandNumber, parameters, skipStatusErrors=False):
-        print "_sendCommand", commandNumber, parameters
+        print("_sendCommand", commandNumber, parameters)
         try:
             logger.debug("sendCommand: SEND|0x%x|%s|%s" % (commandNumber,
                                                                        skipStatusErrors and "T" or "F",
                                                                        str(parameters)))
             return self.conector.sendCommand(commandNumber, parameters, skipStatusErrors)
-        except epsonFiscalDriver.ComandoException, e:
+        except epsonFiscalDriver.ComandoException as e:
             logger.exception("epsonFiscalDriver.ComandoException: %s" % str(e))
             raise ComandoException("Error de la impresora fiscal: " + str(e))
 

@@ -1,4 +1,7 @@
+import multiprocessing
+import socketio
 import tornado
+from tornado import httpserver, websocket, ioloop, web
 from Traductores.TraductoresHandler import TraductoresHandler, TraductorException
 import sys
 import socket
@@ -6,13 +9,11 @@ import os
 import json
 import logging
 import logging.config
+import ssl
 import Configberry
-import socketio
-from socketio import exceptions
-
-
 import FiscalberryDiscover
-from  tornado import web
+
+
 if sys.platform == 'win32':
     from signal import signal, SIG_DFL, SIGTERM, SIGINT
 else:
@@ -28,16 +29,15 @@ MAX_WAIT_SECONDS_BEFORE_SHUTDOWN = 2
 # en config.ini
 
 root = os.path.dirname(os.path.abspath(__file__))
-
-
 logging.config.fileConfig(root+'/logging.ini')
 logger = logging.getLogger(__name__)
+
 
 class WebSocketException(Exception):
     pass
 
 
-class PageHandler(tornado.web.RequestHandler):
+class PageHandler(web.RequestHandler):
     def get(self):
         try:
             with open(os.path.join(root + "/js_browser_client", 'example_ws_client.html')) as f:
@@ -46,28 +46,27 @@ class PageHandler(tornado.web.RequestHandler):
         except IOError as e:
             self.write("404: Not Found")
 
-# inicializar intervalo para verificar que la impresora tenga papel
-#
 
-class WSHandler(tornado.websocket.WebSocketHandler):
+class WSHandler(websocket.WebSocketHandler):
+
     def initialize(self, ref_object):
         self.fbApp = ref_object
         self.clients = []
         self.traductor = TraductoresHandler(self, self.fbApp)
+
 
     def open(self):
         self.clients.append(self)
         logger.info('Connection Established')
 
 
-
-    def on_message(self, message):
+    async def on_message(self, message):
         traductor = self.traductor
         response = {}
         logger.info("Request \n -> %s" % message)
         try:
             jsonMes = json.loads(message, strict=False)
-            response = self.traductor.json_to_comando(jsonMes)
+            response = await traductor.json_to_comando(jsonMes)
         except TypeError as e:
             errtxt = "Error parseando el JSON %s" % e
             logger.exception(errtxt)
@@ -92,9 +91,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         logger.info("Response \n <- %s" % response)
         self.write_message(response)
 
+
     def on_close(self):
         self.clients.remove(self)
-        logger.info('connection closed')
+        logger.info('Connection Closed')
+
 
     def check_origin(self, origin):
         return True
@@ -104,6 +105,11 @@ class FiscalberryApp:
     application = None
     http_server = None
     https_server = None
+
+    socketio = None
+    sioServerTornadoHandler = None
+    sioProcess = None
+    sio = None
 
     # thread timer para hacer broadcast cuando hay mensaje de la impresora
     timerPrinterWarnings = None
@@ -119,32 +125,27 @@ class FiscalberryApp:
         # actualizar ip privada por si cambio
         ip = self.get_ip()
         self.configberry.writeSectionWithKwargs('SERVIDOR', {'ip_privada': ip})
-        logger.info("La IP privada es %s" % ip)
+        logger.info(f"La IP privada es {ip}")
 
 
         # evento para terminar ejecucion mediante CTRL+C
         def sig_handler(sig, frame):
-            logger.info('Caught signal: %s', sig)
-            tornado.ioloop.IOLoop.instance().add_callback(self.shutdown)
+            logger.info(f'Caught signal: {sig}')
+            ioloop.IOLoop.current().add_callback_from_signal(self.shutdown)
 
         signal(SIGTERM, sig_handler)
         signal(SIGINT, sig_handler)       
-
 
     def restart_service(self):
         self.shutdown()
         self.discover()
         self.start()
-    
 
     def shutdown(self):
         logger.info('Stopping http server')
-
-        #logger.info('Will shutdown in %s seconds ...', MAX_WAIT_SECONDS_BEFORE_SHUTDOWN)
-        io_loop = tornado.ioloop.IOLoop.current()
-
-        #deadline = time.time() + MAX_WAIT_SECONDS_BEFORE_SHUTDOWN
-
+        io_loop = ioloop.IOLoop.current()
+        if self.sioProcess:
+            self.sioProcess.terminate()
         io_loop.stop()
         logger.info('Shutdown')
 
@@ -156,30 +157,41 @@ class FiscalberryApp:
         if hasopnURL and hasopnUUID:
             fbdiscover = FiscalberryDiscover.send(self.configberry)
 
-    def start(self):
+
+    def start(self, isSioServer = False, isSioClient = False):
+
+        self.isSioServer = isSioServer
+        self.isSioClient = isSioClient
+        
+        self.startSocketIO()
+
         logger.info("Iniciando Fiscalberry Server")
         settings = {  
-            "autoreload": True          
+            "autoreload": True
         }
 
-        self.application = tornado.web.Application([
+        self.application = web.Application([
+            
+            (r'/socket.io/', self.sioServerTornadoHandler),
             (r'/wss', WSHandler, {"ref_object" : self}),
             (r'/ws', WSHandler, {"ref_object" : self}),
             (r'/api', ApiRestHandler),
             (r'/api/auth', AuthHandler),
             (r'/', PageHandler),
-            (r"/(.*)", web.StaticFileHandler, dict(path=root + "/js_browser_client")),
+            (r"/(.*)", web.StaticFileHandler, dict(path=root + "/js_browser_client"))
+
         ], **settings)
+        # self.application.add_handlers(r'/socket.io/', socketio.get_tornado_handler(self.sio))
 
         # cuando cambia el config.ini levanta devuelta el servidor tornado
         tornado.autoreload.watch("config.ini")
 
         myIP = socket.gethostbyname(socket.gethostname())
 
-        self.http_server = tornado.httpserver.HTTPServer(self.application)
+        self.http_server = httpserver.HTTPServer(self.application)
         puerto = self.configberry.config.get('SERVIDOR', "puerto")
         self.http_server.listen(puerto)
-        logger.info('***Websocket Server Started as HTTP at %s port %s***' % (myIP, puerto))
+        logger.info(f'*** Websocket Server Started as HTTP at {myIP} port {puerto} ***')
 
 
         hasCrt = self.configberry.config.has_option('SERVIDOR', "ssl_crt_path")
@@ -189,79 +201,39 @@ class FiscalberryApp:
             ssl_crt_path = self.configberry.config.get('SERVIDOR', "ssl_crt_path")
             ssl_key_path = self.configberry.config.get('SERVIDOR', "ssl_key_path")
             if ( ssl_crt_path and ssl_key_path ):
-                self.https_server = tornado.httpserver.HTTPServer(self.application, ssl_options=
+                self.https_server = httpserver.HTTPServer(self.application, ssl_options=
                     {
                         "certfile": ssl_crt_path,
                         "keyfile": ssl_key_path,
                     })
                 puerto = int(puerto) + 1
                 self.https_server.listen(puerto)
-                logger.info('*** Websocket Server Started as HTTPS at %s port %s***' % (myIP, puerto))
+                logger.info(f'*** Websocket Server Started as HTTPS at {myIP} port {puerto} ***')
 
         self.print_printers_resume()
        
-        #self.connectSocketIOServer()
-
-        tornado.ioloop.IOLoop.current().start()
-        tornado.ioloop.IOLoop.current().close()
-
+        ioloop.IOLoop.current().start()
+        ioloop.IOLoop.current().close()
+        if self.sioProcess:
+            self.sioProcess.terminate()
         logger.info("Bye!")
+
+    def startSocketIO(self):
         
-    
-    def startSocketIO(self, isServer):   
-    
-        def startSocketIOServer(): pass
+        if (self.isSioServer and not self.isSioClient): 
+            logger.info("Iniciando Socket.io Server")           
+            import SioServerHandler
+            self.socketio = SioServerHandler
+            sio = self.socketio.sio
+            self.sioServerTornadoHandler = socketio.get_tornado_handler(sio)
+            self.socketio.password = self.configberry.config.get("SERVIDOR", "sio_password", fallback = "password")
 
-        def startSocketIOClient(socketioServer, uuid):
-
-            hostname = socket.gethostname()
-
-            sio = socketio.Client(logger=logger, reconnection_delay=2)
-
-            def sendRawData():
-                i=0
-                while (i<5):
-                    if sio.connected: sio.emit('mesa:add', {'iteration': i})
-                    sio.sleep(2)
-
-            def printComand(comando):
-                print(f"SocketIO JSON => {comando}")
-
-            @sio.event
-            def connect():
-                logger.info(f"Conectado al servidor SocketIO '{uuid}' @ {socketioServer}")
-                sio.start_background_task(sendRawData)
-
-            @sio.event
-            def disconnect():
-                print("Desconectado del Servidor")
-            
-            @sio.event
-            def connect_error(error):
-                logger.error("No se puede conectar al Servidor")
-
-            @sio.event
-            def printComando(json):
-                sio.start_background_task(printComand,json)
-            
-            sio.connect(socketioServer, headers={"UUID":uuid})                       
-
-            # sio.wait()
-
-
-        logger.info("Preparando SocketIO " + ("Server" if isServer else "Client"))
-
-        if (self.configberry.config.has_option('SERVIDOR','servidor_socket_io') and self.configberry.config.has_option('SERVIDOR','uuid')):
-
-            socketioServer = self.configberry.config.get('SERVIDOR', "servidor_socket_io")
-            socketioChannel = self.configberry.config.get('SERVIDOR', "uuid")
-
-            if (socketioServer and socketioChannel):
-                startSocketIOClient(socketioServer, socketioChannel) if not isServer else startSocketIOServer()
-            else:                
-                logger.error(f"No se puede iniciar la conexión al servidor SocketIO por falta de parámetros")
-
-
+        if (self.isSioClient and not self.isSioServer):
+            logger.info("Iniciando Socket.io Client")
+            from SioClientHandler import SioClientHandler
+            self.socketio = SioClientHandler()
+            self.sioProcess = multiprocessing.Process(target = self.socketio.startSioClient, args=(), name="SocketIOClient")
+            self.sioProcess.start()
 
 
     def get_ip(self):
@@ -281,16 +253,13 @@ class FiscalberryApp:
         printers = self.configberry.sections()[1:]
 
         if len(printers) > 1:
-            logger.info("Hay %s impresoras disponibles" % len(printers))
+            logger.info(f"Hay {len(printers)} impresoras disponibles")
         else:
             logger.info("Impresora disponible:")
         for printer in printers:
-            logger.info("  - %s" % printer)
-            #modelo = None
+            logger.info(f"  - {printer}")
             marca = self.configberry.config.get(printer, "marca")
             driver = "default"
             if self.configberry.config.has_option(printer, "driver"):
                 driver = self.configberry.config.get(printer, "driver")
-            # if self.configberry.config.has_option(printer, "modelo"):
-            #     modelo = self.configberry.config.get(printer, "modelo")
-            logger.info("      marca: %s, driver: %s" % (marca, driver))
+            logger.info(f"      marca: {marca}, driver: {driver}")
