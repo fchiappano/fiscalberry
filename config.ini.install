@@ -5,13 +5,18 @@ ssl_crt_path =
 ssl_key_path =
 uuid =
 
-[IMPRESORA_FISCAL]
-marca = Hasar
-modelo = 715v2
+[Epson]
+marca = EpsonPanama
+modelo = tm-t900fa
+path = /dev/ttyUSB0
+
+[EpsonFile]
+marca = EpsonPanama
+modelo = tmp-t900fa
 path = /tmp/respuestas.txt
-driver = File
+driver = Txt
 
 [IMPRESORA_RED]
 marca = EscP
-host = 127.0.0.1
+host = 192.168.0.100
 driver = ReceiptDirectJet
