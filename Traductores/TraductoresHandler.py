@@ -18,7 +18,7 @@ INTERVALO_IMPRESORA_WARNING = 30.0
 import logging
 
 logger = logging.getLogger(__name__)
-
+config = Configberry.Configberry()
 
 def set_interval(func, sec):
     def func_wrapper():
@@ -40,35 +40,44 @@ class TraductorException(Exception):
 
 
 def init_printer_traductor(printerName):
-    config = Configberry.Configberry()
 
     try:
         dictSectionConf = config.get_config_for_printer(printerName)
+        marca = dictSectionConf.get("marca")
+        del dictSectionConf['marca']
+        # instanciar los comandos dinamicamente
+        libraryName = "Comandos." + marca + "Comandos"
+        comandoModule = importlib.import_module(libraryName)
+        comandoClass = getattr(comandoModule, marca + "Comandos")
+        comando = comandoClass(**dictSectionConf)
+
+        return comando.traductor
+
     except KeyError as e:
-        raise TraductorException("En el archivo de configuracion no existe la impresora: '%s'" % printerName)
+        logging.exception("En el archivo de configuracion no existe la impresora: '%s'" % printerName, exc_info=e)
 
-    marca = dictSectionConf.get("marca")
-    del dictSectionConf['marca']
-    # instanciar los comandos dinamicamente
-    libraryName = "Comandos." + marca + "Comandos"
-    comandoModule = importlib.import_module(libraryName)
-    comandoClass = getattr(comandoModule, marca + "Comandos")
-    
-    comando = comandoClass(**dictSectionConf)
-    return comando.traductor
+        return False
 
-def runTraductor(jsonTicket, queue):
-    logging.info("mandando comando de impresora")
+def runTraductor(jsonTicket):
+
+    logging.info("Mandando comando de impresora")
+    print(jsonTicket)
     printerName = jsonTicket['printerName']
-    traductor = init_printer_traductor(printerName)
 
-    if traductor:
-        if traductor.comando.conector is not None:
-            queue.put(traductor.run(jsonTicket))
-        else:
-            strError = "el Driver no esta inicializado para la impresora %s" % printerName
-            queue.put(strError)
-            logging.error(strError)
+    try:
+        traductor = init_printer_traductor(printerName)
+        if traductor:
+            if traductor.comando.conector is not None:
+
+                return traductor.run(jsonTicket)
+
+            else:
+                strError = "El Driver no esta inicializado para la impresora %s" % printerName
+
+                return strError
+
+    except Exception as e:
+                logging.exception(e)
 
 
 
@@ -79,7 +88,7 @@ class TraductoresHandler:
     traductores = {}
     fbApp = None
 
-    config = Configberry.Configberry()
+    # config = Configberry.Configberry()
     webSocket = None
 
     def __init__(self, webSocket = None, fbApp = None):
@@ -90,28 +99,18 @@ class TraductoresHandler:
 
 
     def json_to_comando(self, jsonTicket):
-        import time        
         traductor = None
         
         try:
             """ leer y procesar una factura en formato JSON
             """
-            logging.info("Iniciando procesamiento de json:::: "+json.dumps(jsonTicket))
+            logging.info(u"Iniciando procesamiento de json:::: " + json.dumps(jsonTicket))
 
             rta = {"rta": ""}
             # seleccionar impresora
             # esto se debe ejecutar antes que cualquier otro comando
             if 'printerName' in jsonTicket:
-                # run multiprocessing
-                q = Queue()
-                p = Process(target=runTraductor, args=(jsonTicket,q))
-                p.daemon = True
-                #p = MultiprocesingTraductor(traductorhandler=self, jsonTicket=jsonTicket, q=q)
-                p.start()
-                p.join()
-                if q.empty() == False:
-                    rta["rta"] = q.get(timeout=1)
-                q.close()
+                rta["rta"] = runTraductor(jsonTicket) 
 
             # aciones de comando genericos de Ststus y control
             elif 'getStatus' in jsonTicket:
@@ -189,7 +188,7 @@ class TraductoresHandler:
         rta = {
             "printerName": printerName,
             "action": "getPrinterInfo",
-            "rta": self.config.get_config_for_printer(printerName)
+            "rta": config.get_config_for_printer(printerName)
         }
         print(rta)
         return rta
@@ -221,7 +220,7 @@ class TraductoresHandler:
             self._removerImpresora(kwargs["nombre_anterior"])
             del propiedadesImpresora["nombre_anterior"]
         del propiedadesImpresora["printerName"]
-        self.config.writeSectionWithKwargs(printerName, propiedadesImpresora)
+        config.writeSectionWithKwargs(printerName, propiedadesImpresora)
 
         return {
             "action": "configure",
@@ -231,7 +230,7 @@ class TraductoresHandler:
     def _removerImpresora(self, printerName):
         "elimina la sección del config.ini"
 
-        self.config.delete_printer_from_config(printerName)
+        config.delete_printer_from_config(printerName)
 
         return {
             "action": "removerImpresora",
@@ -253,7 +252,7 @@ class TraductoresHandler:
         # la primer seccion corresponde a SERVER, el resto son las impresoras
         rta = {
             "action": "getAvaliablePrinters",
-            "rta": self.config.sections()[1:]
+            "rta": config.sections()[1:]
         }
 
         return rta
@@ -273,7 +272,8 @@ class TraductoresHandler:
         traductor.comando.conector.driver.reconnect()
         # volver a intententar el mismo comando
         try:
-            rta["rta"] = traductor.run(jsonTicket)
+            
+            rta = dict(rta = traductor.run(jsonTicket))
             return rta
         except Exception:
             # ok, no quiere conectar, continuar sin hacer nada
@@ -282,7 +282,7 @@ class TraductoresHandler:
     def _getActualConfig(self):
         rta = {
             "action": "getActualConfig",
-            "rta": self.config.get_actual_config()
+            "rta": config.get_actual_config()
         }
 
         return rta

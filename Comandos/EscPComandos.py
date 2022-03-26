@@ -75,11 +75,15 @@ class EscPComandos(ComandoInterface):
 
     def printPedido(self, **kwargs):
         "imprimir pedido de compras"
-        printer = self.conector.driver
 
         encabezado = kwargs.get("encabezado", None)
         items = kwargs.get("items", [])
 
+        if encabezado is None or len(items) == 0:
+            logging.getLogger("EscP-Comandos").error("No hay datos suficientes para imprimir")
+            return False
+
+        printer = self.conector.driver        
         printer.start()
         
         printer.set("CENTER", "A", "A", 1, 1)
@@ -147,6 +151,8 @@ class EscPComandos(ComandoInterface):
         printer.set("LEFT", "A", "B", 1, 2)
         printer.end()
 
+        return True
+
     def __printExtras(self, kwargs):
         "imprimir qr y barcodes"
         printer = self.conector.driver
@@ -180,10 +186,12 @@ class EscPComandos(ComandoInterface):
         addAdditional = kwargs.get("addAdditional", None)
         setTrailer = kwargs.get("setTrailer", None)
         
-        printer = self.conector.driver
+        if encabezado is None or len(items) == 0:
+            logging.getLogger("EscP-Comandos").error("No hay datos suficientes para imprimir")
+            return False        
         
+        printer = self.conector.driver
         printer.start()
-
         
         printer.set("CENTER", "A", "B", 2, 1)
         printer.text(u""+encabezado.get("nombre_comercio")+"\n")
@@ -235,7 +243,7 @@ class EscPComandos(ComandoInterface):
             printer.text(u""+pad("Descripcion", (self.total_cols - self.price_cols), " ", "l")+pad("Importe", self.price_cols, " ", "r")+"\n")
             printer.text(u"-" * self.total_cols + "\n")
         else:
-            printer.set("LEFT", "A", "B", 1,1)
+            printer.set("CENTER", "A", "B", 1,1)
             printer.text(u'CANT'+"        DESCRIPCION".center(self.desc_cols," ")+pad("IMPORTE", self.price_cols, " ", "r")+'\n\n')
         
                 
@@ -272,7 +280,7 @@ class EscPComandos(ComandoInterface):
                 printer.set("LEFT", "A", "A", 1, 1)
                 printer.text(  u""+dstxt +  preciotxt + "\n" )
             else:
-                printer.set("LEFT", "A", "A", 1, 1)
+                printer.set("CENTER", "A", "A", 1, 1)
                 itemcanttxt = pad(item_cant, self.cant_cols, " ", "l")
                 dstxt = pad(ds, self.desc_cols, " ", "l")
                 preciotxt = pad( total_producto, self.price_cols, " ", "r")
@@ -282,7 +290,7 @@ class EscPComandos(ComandoInterface):
         tot_neto = float( encabezado.get("importe_neto") )
         tot_iva  = float( encabezado.get("importe_iva") ) 
         total    = float( encabezado.get("importe_total") )
-        printer.set("RIGHT", "A", "A", 1, 1)
+        printer.set("CENTER", "A", "A", 1, 1)
         printer.text("\n")
         
         printer.text(u"-" * self.total_cols + "\n")
@@ -295,11 +303,11 @@ class EscPComandos(ComandoInterface):
             desporcentaje = float(addAdditional.get('descuento_porcentaje'))
             descuentoRatio = (1 - (desporcentaje/100)) if desporcentaje != 0 else 1
 
-            printer.set("RIGHT", "A", "B", 1, 1)
+            printer.set("CENTER", "A", "B", 1, 1)
             printer.text(pad("SUBTOTAL",self.total_cols-self.price_cols, " ","l") 
                         + "$" + pad("{:,.2f}".format(round(total + sAmount,2)),self.price_cols-1, " ", "r")+"\n")
 
-            printer.set("RIGHT", "A", "A", 1, 1)
+            printer.set("CENTER", "A", "A", 1, 1)
             printer.text(pad("Dto: %s" % descuentoDesc[0:self.desc_cols],self.total_cols-self.price_cols-1," ", "l") 
                         + "-$" + pad("{:,.2f}".format(round(sAmount, 2)),self.price_cols-1, " ", "r")+"\n\n")
 
@@ -318,14 +326,14 @@ class EscPComandos(ComandoInterface):
 
 
         # imprimir total
-        printer.set("RIGHT", "A", "B", 1, 2)
+        printer.set("CENTER", "A", "B", 1, 2)
         printer.text(pad(u"TOTAL",self.total_cols-self.price_cols, " ", "l")
                     + "$" + pad("{:,.2f}".format(round(total,2)),self.price_cols-1," ", "r") + "\n")
 
-        printer.set("RIGHT", "A", "A", 1, 1)
+        printer.set("CENTER", "A", "A", 1, 1)
         printer.text(u"-" * self.total_cols + "\n\n")
 
-        printer.set("LEFT", "B", "A", 1, 1)
+        printer.set("CENTER", "B", "A", 1, 1)
 
         if encabezado.get("tipo_comprobante") == "NOTAS DE CREDITO A" or encabezado.get("tipo_comprobante") == "NOTAS DE CREDITO B" or encabezado.get("tipo_comprobante") == 'NOTAS DE CREDITO M':
             printer.text(u"Firma.......................................\n\n")
@@ -401,17 +409,22 @@ class EscPComandos(ComandoInterface):
         printer.set("LEFT", "A", "B", 1, 2)
         printer.end()
 
+        return True
 
     def printRemitoCorto(self, **kwargs):
         "imprimir remito"
-        printer = self.conector.driver
 
         encabezado = kwargs.get("encabezado", None)
         items = kwargs.get("items", [])
         addAdditional = kwargs.get("addAdditional", None)
         setTrailer = kwargs.get("setTrailer", None)
         
+        if len(items) == 0:
+            logging.getLogger("EscP-Comandos").error("No hay datos suficientes para imprimir")
+            return False
+        
 
+        printer = self.conector.driver
         printer.start()
 
         printer.set("CENTER", "A", "A", 1, 1)
@@ -481,9 +494,10 @@ class EscPComandos(ComandoInterface):
         printer.set("LEFT", "A", "B", 1, 2)
         printer.end()
 
+        return True
+
     def printRemito(self, **kwargs):
         "imprimir remito"
-        printer = self.conector.driver
 
         encabezado = kwargs.get("encabezado", None)
         items = kwargs.get("items", [])
@@ -491,7 +505,12 @@ class EscPComandos(ComandoInterface):
         addAdditional = kwargs.get("addAdditional", None)
         setTrailer = kwargs.get("setTrailer", None)
         
+        if len(items) == 0:
+            logging.getLogger("EscP-Comandos").error("No hay datos suficientes para imprimir")
+            return False
+        
 
+        printer = self.conector.driver
         printer.start()
         
         printer.set("CENTER", "A", "A", 1, 1)
@@ -575,6 +594,8 @@ class EscPComandos(ComandoInterface):
         
         printer.set("LEFT", "A", "B", 1, 2)
         printer.end()
+
+        return True
 
     def setTrailer(self, setTrailer):
         self.__preFillTrailer = setTrailer
@@ -673,9 +694,17 @@ class EscPComandos(ComandoInterface):
         # dejar letra chica alineada izquierda
         printer.set("LEFT", "A", "B", 1, 2)
         printer.end()
+
+        return True
     
     def printArqueo(self, **kwargs):
         
+        encabezado = kwargs.get('encabezado', None)
+
+        if encabezado is None:
+            logging.getLogger("EscP-Comandos").error("No hay datos suficientes para imprimir")
+            return False
+
         printer = self.conector.driver 
         printer.start()
 
@@ -690,8 +719,6 @@ class EscPComandos(ComandoInterface):
 
         totalRetiros = 0
         totalIngresos = 0
-
-        encabezado = kwargs.get('encabezado')
 
         fechaDesde = datetime.datetime.strptime(encabezado['fechaDesde'], '%d-%m-%Y %H:%M').strftime('%d/%m %H:%M',)
         fechaHasta = datetime.datetime.strptime(encabezado['fechaHasta'], '%d-%m-%Y %H:%M').strftime('%d/%m %H:%M',)
@@ -885,3 +912,5 @@ class EscPComandos(ComandoInterface):
         printer.set("LEFT", "A", "B", 1, 2)
         printer.cut("PART")
         printer.end()
+
+        return True
